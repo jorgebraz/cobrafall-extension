@@ -182,6 +182,27 @@ html[data-cbf-filter='only-owned'] .cbf-anchor[data-cbf-filterable='1'][data-cbf
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
 }
 
+.cbf-menu-section {
+  padding: 6px 8px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  opacity: 0.5;
+}
+
+/* The rule sits above a section heading, so the heading stays attached to the
+   groups it introduces. */
+.cbf-menu-group + .cbf-menu-section {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(128, 128, 128, 0.22);
+}
+
+.cbf-menu-move {
+  font-weight: 600;
+}
+
 .cbf-menu-group + .cbf-menu-group {
   margin-top: 6px;
   padding-top: 6px;

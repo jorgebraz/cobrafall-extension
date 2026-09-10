@@ -8,6 +8,7 @@ const el = {
   cubes: document.getElementById('cubes'),
   save: document.getElementById('save'),
   saveStatus: document.getElementById('save-status'),
+  showBar: document.getElementById('showBar'),
   showAddButton: document.getElementById('showAddButton'),
   includeBasics: document.getElementById('includeBasics'),
   ttlMinutes: document.getElementById('ttlMinutes'),
@@ -58,6 +59,7 @@ function renderCubes() {
 }
 
 function renderSettings(settings) {
+  el.showBar.checked = settings.showBar;
   el.showAddButton.checked = settings.showAddButton;
   el.includeBasics.checked = settings.includeBasics;
   el.ttlMinutes.value = String(settings.ttlMinutes);
@@ -135,6 +137,7 @@ el.save.addEventListener('click', async () => {
 });
 
 for (const [id, key] of [
+  ['showBar', 'showBar'],
   ['showAddButton', 'showAddButton'],
   ['includeBasics', 'includeBasics'],
 ]) {

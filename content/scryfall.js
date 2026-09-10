@@ -13,6 +13,7 @@
     LOOKUP_CARDS: 'LOOKUP_CARDS',
     GET_ADD_TARGETS: 'GET_ADD_TARGETS',
     ADD_TO_CUBE: 'ADD_TO_CUBE',
+    MOVE_BOARD: 'MOVE_BOARD',
     SET_SETTINGS: 'SET_SETTINGS',
     SYNC: 'SYNC',
   };
@@ -22,7 +23,7 @@
   const TITLE_SUFFIX = /\s*\([^()]*#[^()]*\)\s*$/;
 
   const state = {
-    settings: { colors: {}, filterMode: 'all', showAddButton: true, enabled: true },
+    settings: { colors: {}, filterMode: 'all', showBar: true, showAddButton: true, enabled: true },
     hits: new Map(), // normalized-ish raw name -> hit list
     entries: [],
     targets: null,
@@ -232,7 +233,7 @@
       add.type = 'button';
       add.className = entry.layout === 'checklist' ? 'cbf-add cbf-add-inline' : 'cbf-add';
       add.textContent = '+';
-      add.title = 'Add to a cube';
+      add.title = hits.length ? 'Move between boards, or add a copy' : 'Add to a cube';
       add.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -276,7 +277,16 @@
   }
 
   function buildBar() {
-    if (document.querySelector('.cbf-bar') || !isSearchListing()) return;
+    const existing = document.querySelector('.cbf-bar');
+
+    // The bar is optional. Hiding it leaves the filter itself alone, which stays
+    // reachable from the toolbar popup.
+    if (!state.settings.showBar) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    if (existing || !isSearchListing()) return;
 
     const bar = document.createElement('div');
     bar.className = 'cbf-bar';
@@ -324,37 +334,100 @@
     }
   }
 
-  async function openAddMenu(entry, button) {
-    closeMenu();
+  function menuSection(text) {
+    const node = document.createElement('div');
+    node.className = 'cbf-menu-section';
+    node.textContent = text;
+    return node;
+  }
 
-    if (!state.targets) state.targets = (await send({ type: MSG.GET_ADD_TARGETS })) || [];
-    const targets = state.targets;
+  function menuGroup(title) {
+    const group = document.createElement('div');
+    group.className = 'cbf-menu-group';
+    const heading = document.createElement('div');
+    heading.className = 'cbf-menu-title';
+    heading.textContent = title;
+    group.appendChild(heading);
+    return group;
+  }
 
-    const menu = document.createElement('div');
-    menu.className = 'cbf-menu';
+  // Both actions behave the same way from here: disable the row, ask the worker,
+  // then either re-badge the card from the hits it returns or explain the refusal.
+  function menuItem(label, className, busyLabel, request, entry, done) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = className;
+    item.textContent = label;
 
-    if (!targets.length) {
-      menu.innerHTML = '<p class="cbf-menu-empty">No cubes enabled. Open Cobrafall options to pick some.</p>';
-    } else {
-      for (const cube of targets) {
-        const group = document.createElement('div');
-        group.className = 'cbf-menu-group';
+    item.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      item.disabled = true;
+      item.textContent = busyLabel;
 
-        const title = document.createElement('div');
-        title.className = 'cbf-menu-title';
-        title.textContent = cube.name;
-        group.appendChild(title);
+      const res = await send(request());
+      closeMenu();
 
-        for (const board of cube.boards) {
-          const item = document.createElement('button');
-          item.type = 'button';
-          item.className = 'cbf-menu-item';
-          item.textContent = board.label;
-          item.addEventListener('click', async (event) => {
-            event.stopPropagation();
-            item.disabled = true;
-            item.textContent = `${board.label}…`;
-            const res = await send({
+      if (res && res.ok) {
+        toast(done);
+        state.hits.set(entry.name, res.hits || []);
+        render();
+      } else {
+        toast((res && res.message) || 'CubeCobra did not accept that change', true);
+      }
+    });
+
+    return item;
+  }
+
+  // Moves come first: for a card already in a cube, shifting it between boards is
+  // usually what you want, and adding a second copy is the rarer intent.
+  function moveSection(entry, hits, targets) {
+    const groups = [];
+
+    for (const hit of hits) {
+      const cube = targets.find((target) => target.id === hit.cubeId);
+      if (!cube) continue;
+
+      const others = cube.boards.filter((board) => board.key !== hit.board);
+      if (!others.length) continue;
+
+      const group = menuGroup(`${cube.name} · ${hit.boardLabel}`);
+      for (const board of others) {
+        group.appendChild(
+          menuItem(
+            `Move to ${board.label}`,
+            'cbf-menu-item cbf-menu-move',
+            `Moving to ${board.label}…`,
+            () => ({
+              type: MSG.MOVE_BOARD,
+              cubeId: cube.id,
+              cubeName: cube.name,
+              fromBoard: hit.board,
+              toBoard: board.key,
+              printId: entry.printId,
+              name: entry.name,
+            }),
+            entry,
+            `Moved ${entry.name} to ${cube.name} · ${board.label}`,
+          ),
+        );
+      }
+      groups.push(group);
+    }
+
+    return groups;
+  }
+
+  function addSection(entry, targets) {
+    return targets.map((cube) => {
+      const group = menuGroup(cube.name);
+      for (const board of cube.boards) {
+        group.appendChild(
+          menuItem(
+            board.label,
+            'cbf-menu-item',
+            `${board.label}…`,
+            () => ({
               type: MSG.ADD_TO_CUBE,
               cubeId: cube.id,
               cubeName: cube.name,
@@ -363,21 +436,36 @@
               name: entry.name,
               set: entry.printing.set,
               collectorNumber: entry.printing.collectorNumber,
-            });
-            closeMenu();
-            if (res && res.ok) {
-              toast(`Added ${entry.name} to ${cube.name} · ${board.label}`);
-              state.hits.set(entry.name, res.hits || []);
-              render();
-            } else {
-              toast((res && res.message) || 'Could not add the card', true);
-            }
-          });
-          group.appendChild(item);
-        }
-
-        menu.appendChild(group);
+            }),
+            entry,
+            `Added ${entry.name} to ${cube.name} · ${board.label}`,
+          ),
+        );
       }
+      return group;
+    });
+  }
+
+  async function openAddMenu(entry, button) {
+    closeMenu();
+
+    if (!state.targets) state.targets = (await send({ type: MSG.GET_ADD_TARGETS })) || [];
+    const targets = state.targets;
+    const hits = state.hits.get(entry.name) || [];
+
+    const menu = document.createElement('div');
+    menu.className = 'cbf-menu';
+
+    if (!targets.length) {
+      menu.innerHTML = '<p class="cbf-menu-empty">No cubes enabled. Open Cobrafall options to pick some.</p>';
+    } else {
+      const moves = moveSection(entry, hits, targets);
+      if (moves.length) {
+        menu.appendChild(menuSection('Move between boards'));
+        for (const group of moves) menu.appendChild(group);
+        menu.appendChild(menuSection('Add a copy'));
+      }
+      for (const group of addSection(entry, targets)) menu.appendChild(group);
     }
 
     document.body.appendChild(menu);
@@ -419,13 +507,15 @@
     state.settings = {
       colors: res.colors || {},
       filterMode: res.filterMode || 'all',
+      showBar: res.showBar !== false,
       showAddButton: res.showAddButton !== false,
       enabled: res.enabled !== false,
     };
 
     state.hits = new Map(Object.entries(res.hits || {}));
     buildBar();
-    if (document.querySelector('.cbf-bar')) applyFilter(state.settings.filterMode);
+    // Applied whether or not the bar is on show, since the popup sets it too.
+    applyFilter(state.settings.filterMode);
     render();
   }
 

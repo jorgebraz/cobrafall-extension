@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = {
   includeBasics: false,
   filterMode: 'all', // all | hide-owned | only-owned
   ttlMinutes: 360,
+  showBar: true,
   showAddButton: true,
   colors: { mainboard: '#2ea043', other: '#d29922' },
 };

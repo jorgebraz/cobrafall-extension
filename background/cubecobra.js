@@ -84,6 +84,40 @@ export async function fetchCubeJSON(id) {
   return res.json();
 }
 
+// Applies a changelog to a cube: per-board adds, removes, swaps and edits. This
+// is the endpoint the cube editor itself posts to, and the only way to take a
+// card off a board, so a move between boards is a remove plus an add.
+//
+// expectedVersion guards it. CubeCobra rejects the commit with 409 if the cube
+// moved on since the version was read, so always read the version and the card
+// indices from the same cubeJSON response used to build the changes.
+export async function commitChanges(cubeId, changes, expectedVersion) {
+  const token = await getCsrfToken();
+  const res = await ccFetch('/cube/api/commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'CSRF-Token': token },
+    body: JSON.stringify({
+      id: cubeId,
+      changes: { ...changes, version: expectedVersion },
+      expectedVersion,
+      useBlog: false,
+      title: '',
+      blog: '',
+    }),
+  });
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  if (res.ok && body && body.success === 'true') return { ok: true, version: body.version };
+
+  return { ok: false, status: res.status, message: (body && body.message) || `CubeCobra returned ${res.status}` };
+}
+
 // board is the raw board key from cubeJSON. The server runs it through
 // boardNameToKey (lowercase, whitespace stripped), so a key is always valid.
 export async function addToCube(cubeId, board, printId) {

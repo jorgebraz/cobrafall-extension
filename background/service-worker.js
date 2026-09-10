@@ -1,6 +1,6 @@
 import { MSG } from '../shared/messages.js';
-import { nameKeys } from '../shared/normalize.js';
-import { addToCube, fetchCubeJSON, fetchDateUpdated, fetchMyCubes } from './cubecobra.js';
+import { nameKeys, normalizeName } from '../shared/normalize.js';
+import { addToCube, commitChanges, fetchCubeJSON, fetchDateUpdated, fetchMyCubes } from './cubecobra.js';
 import { buildIndex, hydrate, toCubeRecord } from './index.js';
 import {
   deleteCubes,
@@ -125,6 +125,7 @@ async function lookupCards(names) {
     enabled: settings.enabled,
     colors: settings.colors,
     filterMode: settings.filterMode,
+    showBar: settings.showBar,
     showAddButton: settings.showAddButton,
   };
 }
@@ -193,6 +194,69 @@ async function applyLocalAdd({ cubeId, board, printId, name, set, collectorNumbe
   await rebuildIndex(settings);
 }
 
+// ---------------------------------------------------------------- move
+
+// The cube's own copy of a card is what moves, and its printing is usually not
+// the one being looked at on Scryfall. Prefer an exact printing match, then fall
+// back to the name, which is how the card was matched in the first place.
+function findInBoard(board, printId, name) {
+  const wanted = normalizeName(name);
+  let byName = -1;
+
+  for (let i = 0; i < board.length; i += 1) {
+    const entry = board[i];
+    if (printId && entry.cardID === printId) return i;
+    if (byName === -1 && normalizeName((entry.details || {}).name) === wanted) byName = i;
+  }
+
+  return byName;
+}
+
+async function moveBoard({ cubeId, cubeName, fromBoard, toBoard, printId, name }) {
+  // Read the version and the card indices from one response: the commit is
+  // rejected if either has moved on.
+  const json = await fetchCubeJSON(cubeId);
+  const cards = json.cards || {};
+  const source = cards[fromBoard];
+
+  if (!Array.isArray(source)) {
+    return { ok: false, message: `${cubeName || 'That cube'} has no ${fromBoard}` };
+  }
+
+  const at = findInBoard(source, printId, name);
+  if (at === -1) {
+    return { ok: false, message: `${name} is no longer on the ${fromBoard}` };
+  }
+
+  const card = source[at];
+  const { details: _details, ...oldCard } = card;
+  const { index: _index, board: _board, ...added } = oldCard;
+
+  const result = await commitChanges(
+    cubeId,
+    {
+      [fromBoard]: { removes: [{ index: card.index, oldCard }] },
+      [toBoard]: { adds: [added] },
+    },
+    json.version,
+  );
+
+  if (!result.ok) return result;
+
+  // The payload just fetched is one commit behind, so move the card in it and
+  // store that. Its timestamp is now stale, which makes the next sync re-read
+  // the cube on its own.
+  const moved = { ...card, board: toBoard };
+  cards[fromBoard] = source.filter((_, i) => i !== at);
+  cards[toBoard] = [...(cards[toBoard] || []), moved];
+
+  const record = toCubeRecord({ ...json, cards }, cubeId);
+  await putCube(record);
+  await rebuildIndex(await getSettings());
+
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------- routing
 
 const handlers = {
@@ -218,6 +282,30 @@ const handlers = {
   },
 
   [MSG.SET_TRACKED_CUBES]: (msg) => setTrackedCubes(msg.cubes || []),
+
+  [MSG.MOVE_BOARD]: async (msg) => {
+    let result = await moveBoard(msg);
+
+    // A 409 means someone committed to the cube between our read and our write.
+    // Rebuilding the changes from a fresh read is exactly the retry.
+    if (!result.ok && result.status === 409) {
+      result = await moveBoard(msg);
+    }
+
+    if (result.ok) {
+      return { ok: true, hits: (await lookupCards([msg.name])).hits[msg.name] || [] };
+    }
+    if (result.status === 403) {
+      return { ok: false, message: `You cannot edit ${msg.cubeName || 'that cube'}` };
+    }
+    if (result.status === 401) {
+      return { ok: false, message: 'Log in to CubeCobra first' };
+    }
+    if (result.status === 409) {
+      return { ok: false, message: 'That cube was edited while moving. Try again.' };
+    }
+    return result;
+  },
 
   [MSG.ADD_TO_CUBE]: async (msg) => {
     let result = await addToCube(msg.cubeId, msg.board, msg.printId);
