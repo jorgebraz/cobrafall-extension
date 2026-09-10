@@ -14,6 +14,7 @@
     GET_ADD_TARGETS: 'GET_ADD_TARGETS',
     ADD_TO_CUBE: 'ADD_TO_CUBE',
     MOVE_BOARD: 'MOVE_BOARD',
+    REMOVE_FROM_BOARD: 'REMOVE_FROM_BOARD',
     SET_SETTINGS: 'SET_SETTINGS',
     SYNC: 'SYNC',
   };
@@ -233,7 +234,7 @@
       add.type = 'button';
       add.className = entry.layout === 'checklist' ? 'cbf-add cbf-add-inline' : 'cbf-add';
       add.textContent = '+';
-      add.title = hits.length ? 'Move between boards, or add a copy' : 'Add to a cube';
+      add.title = hits.length ? 'Move, remove, or add a copy' : 'Add to a cube';
       add.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -330,8 +331,16 @@
     if (state.menu) {
       state.menu.remove();
       state.menu = null;
-      document.removeEventListener('click', closeMenu, true);
+      document.removeEventListener('click', onDocumentClick, true);
     }
+  }
+
+  // The listener captures, so without this a click on the menu would close it
+  // before its own handler ran, and the second click confirming a removal could
+  // never be made.
+  function onDocumentClick(event) {
+    if (state.menu && state.menu.contains(event.target)) return;
+    closeMenu();
   }
 
   function menuSection(text) {
@@ -353,14 +362,25 @@
 
   // Both actions behave the same way from here: disable the row, ask the worker,
   // then either re-badge the card from the hits it returns or explain the refusal.
-  function menuItem(label, className, busyLabel, request, entry, done) {
+  function menuItem(label, className, busyLabel, request, entry, done, confirm = false) {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = className;
     item.textContent = label;
+    let armed = !confirm;
 
     item.addEventListener('click', async (event) => {
       event.stopPropagation();
+
+      // Taking a card out of a cube is the one thing here that loses work, and
+      // this menu sits under the pointer, so ask for the click twice.
+      if (!armed) {
+        armed = true;
+        item.classList.add('cbf-menu-armed');
+        item.textContent = 'Click again to remove';
+        return;
+      }
+
       item.disabled = true;
       item.textContent = busyLabel;
 
@@ -379,9 +399,10 @@
     return item;
   }
 
-  // Moves come first: for a card already in a cube, shifting it between boards is
-  // usually what you want, and adding a second copy is the rarer intent.
-  function moveSection(entry, hits, targets) {
+  // Actions on the copy a cube already holds come first: for a card you own,
+  // shifting or dropping it is usually the intent, and adding a second copy is
+  // the rarer one.
+  function ownedSection(entry, hits, targets) {
     const groups = [];
 
     for (const hit of hits) {
@@ -389,8 +410,6 @@
       if (!cube) continue;
 
       const others = cube.boards.filter((board) => board.key !== hit.board);
-      if (!others.length) continue;
-
       const group = menuGroup(`${cube.name} · ${hit.boardLabel}`);
       for (const board of others) {
         group.appendChild(
@@ -412,6 +431,25 @@
           ),
         );
       }
+      group.appendChild(
+        menuItem(
+          `Remove from ${hit.boardLabel}`,
+          'cbf-menu-item cbf-menu-remove',
+          'Removing…',
+          () => ({
+            type: MSG.REMOVE_FROM_BOARD,
+            cubeId: cube.id,
+            cubeName: cube.name,
+            fromBoard: hit.board,
+            printId: entry.printId,
+            name: entry.name,
+          }),
+          entry,
+          `Removed ${entry.name} from ${cube.name} · ${hit.boardLabel}`,
+          true,
+        ),
+      );
+
       groups.push(group);
     }
 
@@ -459,10 +497,10 @@
     if (!targets.length) {
       menu.innerHTML = '<p class="cbf-menu-empty">No cubes enabled. Open Cobrafall options to pick some.</p>';
     } else {
-      const moves = moveSection(entry, hits, targets);
-      if (moves.length) {
-        menu.appendChild(menuSection('Move between boards'));
-        for (const group of moves) menu.appendChild(group);
+      const owned = ownedSection(entry, hits, targets);
+      if (owned.length) {
+        menu.appendChild(menuSection('Already in your cubes'));
+        for (const group of owned) menu.appendChild(group);
         menu.appendChild(menuSection('Add a copy'));
       }
       for (const group of addSection(entry, targets)) menu.appendChild(group);
@@ -478,7 +516,7 @@
 
     state.menu = menu;
     // Deferred so the click that opened the menu does not immediately close it.
-    setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
+    setTimeout(() => document.addEventListener('click', onDocumentClick, true), 0);
   }
 
   function toast(text, isError = false) {

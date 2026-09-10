@@ -203,6 +203,29 @@ html[data-cbf-filter='only-owned'] .cbf-anchor[data-cbf-filterable='1'][data-cbf
   font-weight: 600;
 }
 
+.cbf-menu-remove {
+  color: #b62324;
+}
+
+.cbf-menu-remove:hover:not([disabled]) {
+  background: #b62324;
+  color: #fff;
+}
+
+/* Armed is the state between the first click and the confirming one. */
+.cbf-menu-armed,
+.cbf-menu-armed:hover:not([disabled]) {
+  background: #b62324;
+  color: #fff;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .cbf-menu-remove {
+    color: #f47f7f;
+  }
+}
+
 .cbf-menu-group + .cbf-menu-group {
   margin-top: 6px;
   padding-top: 6px;

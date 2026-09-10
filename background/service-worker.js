@@ -194,7 +194,7 @@ async function applyLocalAdd({ cubeId, board, printId, name, set, collectorNumbe
   await rebuildIndex(settings);
 }
 
-// ---------------------------------------------------------------- move
+// ------------------------------------------------------ move and remove
 
 // The cube's own copy of a card is what moves, and its printing is usually not
 // the one being looked at on Scryfall. Prefer an exact printing match, then fall
@@ -212,9 +212,15 @@ function findInBoard(board, printId, name) {
   return byName;
 }
 
-async function moveBoard({ cubeId, cubeName, fromBoard, toBoard, printId, name }) {
-  // Read the version and the card indices from one response: the commit is
-  // rejected if either has moved on.
+// Moving and removing are the same commit: both take the card off its board, and
+// a move also puts it back on another one. Passing no toBoard is a removal.
+//
+// The remove is addressed by the card's stored index. cubeJSON sorts each board
+// for presentation but carries that index along, and it addresses the same array
+// the commit endpoint splices, so read the index and the version from one
+// response and send that version as expectedVersion. A concurrent edit then
+// fails the commit instead of taking out whatever now sits at that position.
+async function editBoard({ cubeId, cubeName, fromBoard, toBoard, printId, name }) {
   const json = await fetchCubeJSON(cubeId);
   const cards = json.cards || {};
   const source = cards[fromBoard];
@@ -230,31 +236,51 @@ async function moveBoard({ cubeId, cubeName, fromBoard, toBoard, printId, name }
 
   const card = source[at];
   const { details: _details, ...oldCard } = card;
-  const { index: _index, board: _board, ...added } = oldCard;
+  const changes = { [fromBoard]: { removes: [{ index: card.index, oldCard }] } };
 
-  const result = await commitChanges(
-    cubeId,
-    {
-      [fromBoard]: { removes: [{ index: card.index, oldCard }] },
-      [toBoard]: { adds: [added] },
-    },
-    json.version,
-  );
+  if (toBoard) {
+    const { index: _index, board: _board, ...added } = oldCard;
+    changes[toBoard] = { adds: [added] };
+  }
 
+  const result = await commitChanges(cubeId, changes, json.version);
   if (!result.ok) return result;
 
-  // The payload just fetched is one commit behind, so move the card in it and
-  // store that. Its timestamp is now stale, which makes the next sync re-read
-  // the cube on its own.
-  const moved = { ...card, board: toBoard };
+  // The payload just fetched is one commit behind, so apply the same change to
+  // it and store that. Its timestamp is now stale, which makes the next sync
+  // re-read the cube on its own.
   cards[fromBoard] = source.filter((_, i) => i !== at);
-  cards[toBoard] = [...(cards[toBoard] || []), moved];
+  if (toBoard) cards[toBoard] = [...(cards[toBoard] || []), { ...card, board: toBoard }];
 
-  const record = toCubeRecord({ ...json, cards }, cubeId);
-  await putCube(record);
+  await putCube(toCubeRecord({ ...json, cards }, cubeId));
   await rebuildIndex(await getSettings());
 
   return { ok: true };
+}
+
+// Both actions fail the same ways, so they report them the same way.
+async function runBoardEdit(msg) {
+  let result = await editBoard(msg);
+
+  // A 409 means someone committed to the cube between our read and our write.
+  // Rebuilding the change from a fresh read is exactly the retry.
+  if (!result.ok && result.status === 409) {
+    result = await editBoard(msg);
+  }
+
+  if (result.ok) {
+    return { ok: true, hits: (await lookupCards([msg.name])).hits[msg.name] || [] };
+  }
+  if (result.status === 403) {
+    return { ok: false, message: `You cannot edit ${msg.cubeName || 'that cube'}` };
+  }
+  if (result.status === 401) {
+    return { ok: false, message: 'Log in to CubeCobra first' };
+  }
+  if (result.status === 409) {
+    return { ok: false, message: 'That cube was edited at the same time. Try again.' };
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------- routing
@@ -283,29 +309,9 @@ const handlers = {
 
   [MSG.SET_TRACKED_CUBES]: (msg) => setTrackedCubes(msg.cubes || []),
 
-  [MSG.MOVE_BOARD]: async (msg) => {
-    let result = await moveBoard(msg);
+  [MSG.MOVE_BOARD]: (msg) => runBoardEdit(msg),
 
-    // A 409 means someone committed to the cube between our read and our write.
-    // Rebuilding the changes from a fresh read is exactly the retry.
-    if (!result.ok && result.status === 409) {
-      result = await moveBoard(msg);
-    }
-
-    if (result.ok) {
-      return { ok: true, hits: (await lookupCards([msg.name])).hits[msg.name] || [] };
-    }
-    if (result.status === 403) {
-      return { ok: false, message: `You cannot edit ${msg.cubeName || 'that cube'}` };
-    }
-    if (result.status === 401) {
-      return { ok: false, message: 'Log in to CubeCobra first' };
-    }
-    if (result.status === 409) {
-      return { ok: false, message: 'That cube was edited while moving. Try again.' };
-    }
-    return result;
-  },
+  [MSG.REMOVE_FROM_BOARD]: (msg) => runBoardEdit({ ...msg, toBoard: null }),
 
   [MSG.ADD_TO_CUBE]: async (msg) => {
     let result = await addToCube(msg.cubeId, msg.board, msg.printId);

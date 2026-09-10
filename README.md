@@ -20,8 +20,10 @@ cube without leaving the page.
 - A bar above search results to hide cards already in your cubes, or show only those. Turn
   the bar off in the options if you would rather not see it; the filter itself stays
   available from the toolbar popup.
-- A `+` button on card hover. For a card already in a cube it offers to move that cube's
-  copy between boards first, then to add a fresh copy. For anything else it just adds.
+- A `+` button on card hover. For a card already in a cube it acts on that cube's copy
+  first, offering to move it between boards or take it off the board, then to add a fresh
+  copy. For anything else it just adds. Removing asks for the click twice, since it is the
+  one action here that loses work.
 
 Matching is by card name, so any printing on Scryfall counts as already in the cube. A move
 acts on the copy your cube holds, which is usually a different printing from the one on
@@ -41,7 +43,7 @@ timer you choose in the options, and on demand from the popup or the Scryfall ba
 
 | Path | Role |
 | --- | --- |
-| `background/service-worker.js` | Message router, sync scheduling, add and move |
+| `background/service-worker.js` | Message router, sync scheduling, add, move and remove |
 | `background/cubecobra.js` | Every CubeCobra endpoint, and the reason they live here |
 | `background/index.js` | cubeJSON to local record, and the name index |
 | `background/store.js` | `chrome.storage.local` layout and defaults |
