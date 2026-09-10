@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cobrafall</title>
+    <link rel="stylesheet" href="../shared/ui.css" />
+  </head>
+  <body class="popup">
+    <header class="head">
+      <h1>Cobrafall</h1>
+      <label class="switch">
+        <input type="checkbox" id="enabled" />
+        <span>On</span>
+      </label>
+    </header>
+
+    <p class="empty" id="empty" hidden>
+      No cubes tracked yet. <a href="#" id="open-options">Choose your cubes</a>.
+    </p>
+
+    <ul class="cube-list" id="cubes"></ul>
+
+    <div class="row">
+      <label class="field">
+        <span>Filter Scryfall results</span>
+        <select id="filter">
+          <option value="all">Show all</option>
+          <option value="hide-owned">Hide cards in cubes</option>
+          <option value="only-owned">Only cards in cubes</option>
+        </select>
+      </label>
+    </div>
+
+    <footer class="foot">
+      <span id="status"></span>
+      <span class="spacer"></span>
+      <button type="button" id="refresh">Refresh</button>
+      <button type="button" id="options">Options</button>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

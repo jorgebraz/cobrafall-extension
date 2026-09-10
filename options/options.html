@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cobrafall options</title>
+    <link rel="stylesheet" href="../shared/ui.css" />
+  </head>
+  <body class="options">
+    <h1>Cobrafall</h1>
+    <p class="lede">
+      Pick the CubeCobra cubes to check against while you browse Scryfall. Private and unlisted
+      cubes work as long as you are logged in to CubeCobra in this browser.
+    </p>
+
+    <section>
+      <div class="section-head">
+        <h2>Your cubes</h2>
+        <button type="button" id="load">Load from CubeCobra</button>
+      </div>
+
+      <p class="notice" id="notice" hidden></p>
+      <ul class="cube-list" id="cubes"></ul>
+
+      <div class="actions">
+        <button type="button" id="save" class="primary">Save and sync</button>
+        <span id="save-status"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Behaviour</h2>
+
+      <label class="check">
+        <input type="checkbox" id="showAddButton" />
+        <span>Show the add-to-cube button on Scryfall cards</span>
+      </label>
+
+      <label class="check">
+        <input type="checkbox" id="includeBasics" />
+        <span>Count the basics board when marking cards</span>
+      </label>
+
+      <label class="field">
+        <span>Re-check cubes every</span>
+        <select id="ttlMinutes">
+          <option value="60">hour</option>
+          <option value="180">3 hours</option>
+          <option value="360">6 hours</option>
+          <option value="1440">day</option>
+        </select>
+      </label>
+
+      <div class="colors">
+        <label class="field">
+          <span>Mainboard ring</span>
+          <input type="color" id="colorMain" />
+        </label>
+        <label class="field">
+          <span>Other boards ring</span>
+          <input type="color" id="colorOther" />
+        </label>
+      </div>
+    </section>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

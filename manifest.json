@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Cobrafall",
+  "version": "0.1.0",
+  "description": "Marks cards on Scryfall that are already in your CubeCobra cubes, filters searches by that, and adds cards to a cube in place.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://cubecobra.com/*"],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://scryfall.com/*"],
+      "js": ["content/scryfall.js"],
+      "css": ["content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Cobrafall",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
