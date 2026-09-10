@@ -81,9 +81,53 @@ tr.cbf-anchor[data-cbf-state='in'] {
   vertical-align: middle;
 }
 
+/* Hover is not enough once an action is running: the pointer has usually left
+   the card by then, and an invisible spinner is no feedback at all. */
 .cbf-anchor:hover .cbf-add,
-.cbf-add:focus-visible {
+.cbf-add:focus-visible,
+.cbf-add-open,
+.cbf-add[data-cbf-status] {
   opacity: 1;
+}
+
+.cbf-add[data-cbf-status] {
+  cursor: default;
+}
+
+.cbf-add[data-cbf-status='busy']::after {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 6px auto;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cbf-spin 0.6s linear infinite;
+}
+
+.cbf-add-inline[data-cbf-status='busy']::after {
+  width: 10px;
+  height: 10px;
+  margin: 5px auto;
+}
+
+.cbf-add[data-cbf-status='done'] {
+  background: #2ea043;
+}
+
+@keyframes cbf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cbf-add[data-cbf-status='busy']::after {
+    animation: none;
+    border-color: rgba(255, 255, 255, 0.75);
+    border-top-color: rgba(255, 255, 255, 0.75);
+  }
 }
 
 .cbf-add:hover {
@@ -259,6 +303,17 @@ html[data-cbf-filter='only-owned'] .cbf-anchor[data-cbf-filterable='1'][data-cbf
   color: #fff;
 }
 
+/* Why the last action did not happen, kept beside the action that failed. */
+.cbf-menu-error {
+  margin: 0 0 6px;
+  padding: 7px 9px;
+  max-width: 240px;
+  border-radius: 6px;
+  background: rgba(182, 35, 36, 0.12);
+  color: #b62324;
+  font-weight: 600;
+}
+
 .cbf-menu-empty {
   margin: 0;
   padding: 8px;
@@ -271,31 +326,9 @@ html[data-cbf-filter='only-owned'] .cbf-anchor[data-cbf-filterable='1'][data-cbf
     background: #1c2028;
     color: #e7ebf0;
   }
-}
 
-/* ---------------------------------------------------------------- toast */
-
-.cbf-toast {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  z-index: 2147483001;
-  max-width: 80vw;
-  padding: 9px 16px;
-  border-radius: 8px;
-  background: #16181d;
-  color: #fff;
-  font: 500 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-  opacity: 1;
-  transition: opacity 0.35s ease;
-}
-
-.cbf-toast-error {
-  background: #b62324;
-}
-
-.cbf-toast-out {
-  opacity: 0;
+  .cbf-menu-error {
+    background: rgba(244, 127, 127, 0.14);
+    color: #f47f7f;
+  }
 }

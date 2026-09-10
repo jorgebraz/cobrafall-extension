@@ -23,7 +23,9 @@ cube without leaving the page.
 - A `+` button on card hover. For a card already in a cube it acts on that cube's copy
   first, offering to move it between boards or take it off the board, then to add a fresh
   copy. For anything else it just adds. Removing asks for the click twice, since it is the
-  one action here that loses work.
+  one action here that loses work. Committing an action closes the menu and turns the button
+  into a spinner, then a checkmark as the badge updates. A refusal reopens the menu with the
+  reason at the top.
 
 Matching is by card name, so any printing on Scryfall counts as already in the cube. A move
 acts on the copy your cube holds, which is usually a different printing from the one on

@@ -19,6 +19,8 @@
     SYNC: 'SYNC',
   };
 
+  // How long the checkmark stays before the button goes back to +.
+  const DONE_MS = 1600;
   const UUID = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
   // Scryfall image titles read "Esper Sentinel (Modern Horizons 2 #12)".
   const TITLE_SUFFIX = /\s*\([^()]*#[^()]*\)\s*$/;
@@ -29,6 +31,11 @@
     entries: [],
     targets: null,
     menu: null,
+    menuEntry: null,
+    // printing id -> 'busy' | 'done'. Kept here rather than on the button,
+    // because annotate() rebuilds that button on every render and a successful
+    // action causes one about 150ms later.
+    actions: new Map(),
   };
 
   const send = (msg) =>
@@ -233,15 +240,44 @@
       const add = document.createElement('button');
       add.type = 'button';
       add.className = entry.layout === 'checklist' ? 'cbf-add cbf-add-inline' : 'cbf-add';
-      add.textContent = '+';
       add.title = hits.length ? 'Move, remove, or add a copy' : 'Add to a cube';
+
+      const status = state.actions.get(entry.printId);
+      if (status === 'busy') {
+        // The spinner is drawn in CSS, so the button carries no label.
+        add.dataset.cbfStatus = 'busy';
+        add.textContent = '';
+        add.disabled = true;
+        add.title = 'Working…';
+      } else if (status === 'done') {
+        add.dataset.cbfStatus = 'done';
+        add.textContent = '✓';
+      } else {
+        add.textContent = '+';
+      }
+
+      // A render while the menu is open must not hide the button it hangs off.
+      if (state.menuEntry && state.menuEntry.printId === entry.printId) {
+        add.classList.add('cbf-add-open');
+      }
+
       add.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openAddMenu(entry, add);
+        openAddMenu(entry);
       });
       badgeHost.appendChild(add);
     }
+  }
+
+  // The button for an entry, resolved fresh: a render may have replaced the one
+  // a caller was holding.
+  function addButtonFor(entry) {
+    return entry.badgeHost.querySelector(':scope > .cbf-add');
+  }
+
+  function repaint(entry) {
+    annotate(entry, state.hits.get(entry.name) || []);
   }
 
   function render() {
@@ -328,10 +364,16 @@
   // ------------------------------------------------------------- add to cube
 
   function closeMenu() {
-    if (state.menu) {
-      state.menu.remove();
-      state.menu = null;
-      document.removeEventListener('click', onDocumentClick, true);
+    if (!state.menu) return;
+
+    state.menu.remove();
+    state.menu = null;
+    document.removeEventListener('click', onDocumentClick, true);
+
+    if (state.menuEntry) {
+      const button = addButtonFor(state.menuEntry);
+      if (button) button.classList.remove('cbf-add-open');
+      state.menuEntry = null;
     }
   }
 
@@ -362,7 +404,7 @@
 
   // Both actions behave the same way from here: disable the row, ask the worker,
   // then either re-badge the card from the hits it returns or explain the refusal.
-  function menuItem(label, className, busyLabel, request, entry, done, confirm = false) {
+  function menuItem(label, className, request, entry, confirm = false) {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = className;
@@ -381,18 +423,28 @@
         return;
       }
 
-      item.disabled = true;
-      item.textContent = busyLabel;
+      // Get out of the way first: the badge about to change sits under this menu.
+      closeMenu();
+      state.actions.set(entry.printId, 'busy');
+      repaint(entry);
 
       const res = await send(request());
-      closeMenu();
 
       if (res && res.ok) {
-        toast(done);
         state.hits.set(entry.name, res.hits || []);
+        state.actions.set(entry.printId, 'done');
         render();
+        setTimeout(() => {
+          if (state.actions.get(entry.printId) !== 'done') return;
+          state.actions.delete(entry.printId);
+          render();
+        }, DONE_MS);
       } else {
-        toast((res && res.message) || 'CubeCobra did not accept that change', true);
+        state.actions.delete(entry.printId);
+        repaint(entry);
+        // Put the reason next to the action that failed, rather than off in a
+        // corner of the page.
+        openAddMenu(entry, (res && res.message) || 'CubeCobra did not accept that change');
       }
     });
 
@@ -416,7 +468,6 @@
           menuItem(
             `Move to ${board.label}`,
             'cbf-menu-item cbf-menu-move',
-            `Moving to ${board.label}…`,
             () => ({
               type: MSG.MOVE_BOARD,
               cubeId: cube.id,
@@ -427,7 +478,6 @@
               name: entry.name,
             }),
             entry,
-            `Moved ${entry.name} to ${cube.name} · ${board.label}`,
           ),
         );
       }
@@ -435,7 +485,6 @@
         menuItem(
           `Remove from ${hit.boardLabel}`,
           'cbf-menu-item cbf-menu-remove',
-          'Removing…',
           () => ({
             type: MSG.REMOVE_FROM_BOARD,
             cubeId: cube.id,
@@ -445,7 +494,6 @@
             name: entry.name,
           }),
           entry,
-          `Removed ${entry.name} from ${cube.name} · ${hit.boardLabel}`,
           true,
         ),
       );
@@ -464,7 +512,6 @@
           menuItem(
             board.label,
             'cbf-menu-item',
-            `${board.label}…`,
             () => ({
               type: MSG.ADD_TO_CUBE,
               cubeId: cube.id,
@@ -476,7 +523,6 @@
               collectorNumber: entry.printing.collectorNumber,
             }),
             entry,
-            `Added ${entry.name} to ${cube.name} · ${board.label}`,
           ),
         );
       }
@@ -484,8 +530,18 @@
     });
   }
 
-  async function openAddMenu(entry, button) {
+  async function openAddMenu(entry, error) {
     closeMenu();
+
+    // A checkmark still showing from the last action is stale the moment the
+    // menu opens again.
+    if (state.actions.get(entry.printId) === 'done') {
+      state.actions.delete(entry.printId);
+      repaint(entry);
+    }
+
+    const button = addButtonFor(entry);
+    if (!button) return;
 
     if (!state.targets) state.targets = (await send({ type: MSG.GET_ADD_TARGETS })) || [];
     const targets = state.targets;
@@ -493,6 +549,13 @@
 
     const menu = document.createElement('div');
     menu.className = 'cbf-menu';
+
+    if (error) {
+      const banner = document.createElement('p');
+      banner.className = 'cbf-menu-error';
+      banner.textContent = error;
+      menu.appendChild(banner);
+    }
 
     if (!targets.length) {
       menu.innerHTML = '<p class="cbf-menu-empty">No cubes enabled. Open Cobrafall options to pick some.</p>';
@@ -515,17 +578,11 @@
     menu.style.left = `${Math.max(8, left)}px`;
 
     state.menu = menu;
+    state.menuEntry = entry;
+    // Hover alone hides this button, and the pointer is about to be on the menu.
+    button.classList.add('cbf-add-open');
     // Deferred so the click that opened the menu does not immediately close it.
     setTimeout(() => document.addEventListener('click', onDocumentClick, true), 0);
-  }
-
-  function toast(text, isError = false) {
-    const el = document.createElement('div');
-    el.className = `cbf-toast${isError ? ' cbf-toast-error' : ''}`;
-    el.textContent = text;
-    document.body.appendChild(el);
-    setTimeout(() => el.classList.add('cbf-toast-out'), 3200);
-    setTimeout(() => el.remove(), 3600);
   }
 
   // ------------------------------------------------------------- lifecycle
@@ -570,7 +627,7 @@
       for (const node of record.addedNodes) {
         if (node.nodeType !== 1) continue;
         if (node.classList && (node.classList.contains('cbf-badge') || node.classList.contains('cbf-add'))) continue;
-        if (node.matches && node.matches('.cbf-bar, .cbf-menu, .cbf-toast')) continue;
+        if (node.matches && node.matches('.cbf-bar, .cbf-menu')) continue;
         if (node.querySelector && node.querySelector('.card-grid-item, .card-profile, .text-grid-item')) {
           return scheduleLookup();
         }
