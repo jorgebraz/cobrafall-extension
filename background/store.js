@@ -16,6 +16,9 @@ export const DEFAULT_SETTINGS = {
   ttlMinutes: 360,
   showBar: true,
   showAddButton: true,
+  // Which edge of the card art the badge and button sit against. Bottom by
+  // default: the top right of a Magic card is its mana cost.
+  overlayAnchor: 'bottom', // bottom | top
   colors: { mainboard: '#2ea043', other: '#d29922' },
 };
 

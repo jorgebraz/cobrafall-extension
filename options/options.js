@@ -11,6 +11,7 @@ const el = {
   showBar: document.getElementById('showBar'),
   showAddButton: document.getElementById('showAddButton'),
   includeBasics: document.getElementById('includeBasics'),
+  overlayAnchor: document.getElementById('overlayAnchor'),
   ttlMinutes: document.getElementById('ttlMinutes'),
   colorMain: document.getElementById('colorMain'),
   colorOther: document.getElementById('colorOther'),
@@ -62,6 +63,7 @@ function renderSettings(settings) {
   el.showBar.checked = settings.showBar;
   el.showAddButton.checked = settings.showAddButton;
   el.includeBasics.checked = settings.includeBasics;
+  el.overlayAnchor.value = settings.overlayAnchor;
   el.ttlMinutes.value = String(settings.ttlMinutes);
   el.colorMain.value = settings.colors.mainboard;
   el.colorOther.value = settings.colors.other;
@@ -143,6 +145,10 @@ for (const [id, key] of [
 ]) {
   el[id].addEventListener('change', () => send({ type: MSG.SET_SETTINGS, patch: { [key]: el[id].checked } }));
 }
+
+el.overlayAnchor.addEventListener('change', () =>
+  send({ type: MSG.SET_SETTINGS, patch: { overlayAnchor: el.overlayAnchor.value }, rebuild: false }),
+);
 
 el.ttlMinutes.addEventListener('change', () =>
   send({ type: MSG.SET_SETTINGS, patch: { ttlMinutes: Number(el.ttlMinutes.value) }, rebuild: false }),

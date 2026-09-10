@@ -26,7 +26,14 @@
   const TITLE_SUFFIX = /\s*\([^()]*#[^()]*\)\s*$/;
 
   const state = {
-    settings: { colors: {}, filterMode: 'all', showBar: true, showAddButton: true, enabled: true },
+    settings: {
+      colors: {},
+      filterMode: 'all',
+      showBar: true,
+      showAddButton: true,
+      overlayAnchor: 'bottom',
+      enabled: true,
+    },
     hits: new Map(), // normalized-ish raw name -> hit list
     entries: [],
     targets: null,
@@ -604,8 +611,13 @@
       filterMode: res.filterMode || 'all',
       showBar: res.showBar !== false,
       showAddButton: res.showAddButton !== false,
+      overlayAnchor: res.overlayAnchor === 'top' ? 'top' : 'bottom',
       enabled: res.enabled !== false,
     };
+
+    // Positioning lives in the stylesheet, keyed off the root, the same way the
+    // filter mode is.
+    document.documentElement.dataset.cbfAnchor = state.settings.overlayAnchor;
 
     state.hits = new Map(Object.entries(res.hits || {}));
     buildBar();

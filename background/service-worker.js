@@ -127,6 +127,7 @@ async function lookupCards(names) {
     filterMode: settings.filterMode,
     showBar: settings.showBar,
     showAddButton: settings.showAddButton,
+    overlayAnchor: settings.overlayAnchor,
   };
 }
 

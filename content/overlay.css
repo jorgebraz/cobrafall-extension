@@ -25,7 +25,7 @@ tr.cbf-anchor[data-cbf-state='in'] {
 
 .cbf-badge {
   position: absolute;
-  top: 6px;
+  bottom: 6px;
   right: 6px;
   z-index: 5;
   max-width: calc(100% - 16px);
@@ -51,7 +51,7 @@ tr.cbf-anchor[data-cbf-state='in'] {
 
 .cbf-add {
   position: absolute;
-  top: 6px;
+  bottom: 6px;
   left: 6px;
   z-index: 6;
   width: 24px;
@@ -66,6 +66,15 @@ tr.cbf-anchor[data-cbf-state='in'] {
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+/* The top right of a Magic card is its mana cost, which the badge was covering,
+   so both sit along the bottom edge unless the setting says otherwise. Checklist
+   rows are laid out inline and ignore this. */
+html[data-cbf-anchor='top'] .cbf-badge,
+html[data-cbf-anchor='top'] .cbf-add {
+  top: 6px;
+  bottom: auto;
 }
 
 /* A checklist row has no card art to float over, so its button sits in the name

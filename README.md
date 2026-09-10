@@ -14,7 +14,9 @@ cube without leaving the page.
 
 ## What you get on Scryfall
 
-- A colored ring and a badge on every card already in a tracked cube. Green means the
+- A colored ring and a badge on every card already in a tracked cube. The badge and button
+  sit along the bottom edge of the card art, since the top right is where a Magic card keeps
+  its mana cost. The options page can move them back to the top. Green means the
   mainboard, amber means any other board. The badge tooltip names each cube, each board,
   and the printing that cube holds, which is how you spot a printing mismatch.
 - A bar above search results to hide cards already in your cubes, or show only those. Turn
