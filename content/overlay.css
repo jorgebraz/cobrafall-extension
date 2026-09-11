@@ -52,13 +52,19 @@ html[data-cbf-anchor='top'] .cbf-overlay {
   vertical-align: middle;
 }
 
+/* Both halves of the pill are pinned to one height so the cap sits flush with
+   the label rather than bulging past it. 22px over card art, 20px in a checklist
+   row. Change a height and its matching pull-back and glyph size together; the
+   harness asserts that the button's height equals the label's. */
 .cbf-badge {
+  box-sizing: border-box;
   min-width: 0; /* so it still ellipsizes as a flex child */
-  padding: 2px 8px;
+  height: 22px;
+  padding: 0 10px;
   border-radius: 999px;
   background: var(--cbf-ring, #2ea043);
   color: #fff;
-  font: 600 11px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font: 600 11px/22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -71,8 +77,41 @@ html[data-cbf-anchor='top'] .cbf-overlay {
    clear again, so the button reads as a cap on the end of the label rather than
    a second thing sitting next to it. */
 .cbf-add + .cbf-badge {
-  margin-left: -24px;
-  padding-left: 30px;
+  margin-left: -22px;
+  padding-left: 28px;
+}
+
+.cbf-add {
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1; /* over the end of the label it overlaps */
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(20, 20, 24, 0.82);
+  color: #fff;
+  font: 700 15px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.cbf-overlay-inline .cbf-badge {
+  height: 20px;
+  line-height: 20px;
+}
+
+.cbf-add-inline {
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
 }
 
 .cbf-add-inline + .cbf-badge {
@@ -80,33 +119,6 @@ html[data-cbf-anchor='top'] .cbf-overlay {
   padding-left: 26px;
 }
 
-.cbf-add {
-  position: relative;
-  z-index: 1; /* over the end of the label it overlaps */
-  flex: none;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(20, 20, 24, 0.82);
-  color: #fff;
-  font: 700 16px/24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  text-align: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease, background 0.12s ease;
-}
-
-.cbf-add-inline {
-  width: 20px;
-  height: 20px;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-/* Hover is not enough once an action is running: the pointer has usually left
-   the card by then, and an invisible spinner is no feedback at all. */
 /* Pinned means the button belongs to a label, and so is part of an object that
    is already on show. The rest only appear when wanted: on hover, while a menu
    is open, or while an action is running, when the pointer has usually left. */
@@ -127,7 +139,6 @@ html[data-cbf-anchor='top'] .cbf-overlay {
   display: block;
   width: 12px;
   height: 12px;
-  margin: 6px auto;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
@@ -137,7 +148,6 @@ html[data-cbf-anchor='top'] .cbf-overlay {
 .cbf-add-inline[data-cbf-status='busy']::after {
   width: 10px;
   height: 10px;
-  margin: 5px auto;
 }
 
 .cbf-add[data-cbf-status='done'] {
