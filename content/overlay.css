@@ -103,6 +103,39 @@ html[data-cbf-anchor='top'] .cbf-overlay {
   transition: opacity 0.12s ease, background 0.12s ease;
 }
 
+/* The + is drawn, not typed. A glyph sits wherever its font's metrics put it —
+   this one lands 1.2px below the circle's centre in the system font — and that
+   offset changes with the font, so two bars are the only way to have it centred
+   on every platform. The checkmark stays a glyph: it measures within a third of
+   a pixel, and drawing a tick is all magic numbers. */
+.cbf-add::before,
+.cbf-add::after {
+  content: '';
+  box-sizing: border-box;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.cbf-add::before {
+  width: 10px;
+  height: 2px;
+}
+
+.cbf-add::after {
+  width: 2px;
+  height: 10px;
+}
+
+/* Whichever mark a status calls for replaces the bars. */
+.cbf-add[data-cbf-status]::before,
+.cbf-add[data-cbf-status='done']::after {
+  display: none;
+}
+
 .cbf-overlay-inline .cbf-badge {
   height: 20px;
   line-height: 20px;
@@ -112,6 +145,14 @@ html[data-cbf-anchor='top'] .cbf-overlay {
   width: 20px;
   height: 20px;
   font-size: 13px;
+}
+
+.cbf-add-inline::before {
+  width: 8px;
+}
+
+.cbf-add-inline::after {
+  height: 8px;
 }
 
 .cbf-add-inline + .cbf-badge {
@@ -135,10 +176,9 @@ html[data-cbf-anchor='top'] .cbf-overlay {
 }
 
 .cbf-add[data-cbf-status='busy']::after {
-  content: '';
-  display: block;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
+  background: none;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
@@ -146,17 +186,21 @@ html[data-cbf-anchor='top'] .cbf-overlay {
 }
 
 .cbf-add-inline[data-cbf-status='busy']::after {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 .cbf-add[data-cbf-status='done'] {
   background: #2ea043;
 }
 
+/* The translate is what centres it, so the spin has to carry it through. */
 @keyframes cbf-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
   to {
-    transform: rotate(360deg);
+    transform: translate(-50%, -50%) rotate(360deg);
   }
 }
 

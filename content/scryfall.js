@@ -246,6 +246,9 @@
       add.type = 'button';
       add.className = entry.layout === 'checklist' ? 'cbf-add cbf-add-inline' : 'cbf-add';
       add.title = hits.length ? 'Move, remove, or add a copy' : 'Add to a cube';
+      // The + is drawn rather than typed, so the button has no text of its own
+      // to name it.
+      add.setAttribute('aria-label', add.title);
 
       // Attached to a label the button is part of that object, so it stays on
       // show. On its own it is just clutter until you go looking for it.
@@ -258,11 +261,14 @@
         add.textContent = '';
         add.disabled = true;
         add.title = 'Working…';
+        add.setAttribute('aria-label', add.title);
       } else if (status === 'done') {
         add.dataset.cbfStatus = 'done';
         add.textContent = '✓';
       } else {
-        add.textContent = '+';
+        // The + itself is drawn in CSS, so the button carries no label. Its
+        // accessible name comes from the title above.
+        add.textContent = '';
       }
 
       // A render while the menu is open must not hide the button it hangs off.
