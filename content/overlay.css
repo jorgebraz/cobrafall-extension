@@ -23,12 +23,37 @@ tr.cbf-anchor[data-cbf-state='in'] {
   box-shadow: inset 4px 0 0 0 var(--cbf-ring, #2ea043);
 }
 
-.cbf-badge {
+/* The button and the badge are one object, anchored to a corner of the card art.
+   The top right of a Magic card is its mana cost and the bottom right its power
+   and toughness, so the pill sits on the left, over the artist credit at the
+   bottom or the start of the card name at the top. */
+.cbf-overlay {
   position: absolute;
   bottom: 6px;
-  right: 6px;
+  left: 6px;
   z-index: 5;
-  max-width: calc(100% - 16px);
+  display: flex;
+  align-items: center;
+  max-width: calc(100% - 12px);
+}
+
+html[data-cbf-anchor='top'] .cbf-overlay {
+  top: 6px;
+  bottom: auto;
+}
+
+/* A checklist row has no card art to sit on, so the pill goes inline in the name
+   cell instead. */
+.cbf-overlay-inline {
+  position: static;
+  display: inline-flex;
+  max-width: none;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.cbf-badge {
+  min-width: 0; /* so it still ellipsizes as a flex child */
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--cbf-ring, #2ea043);
@@ -42,18 +67,23 @@ tr.cbf-anchor[data-cbf-state='in'] {
   cursor: help;
 }
 
-.cbf-badge-inline {
-  position: static;
-  display: inline-block;
-  margin-left: 8px;
-  vertical-align: middle;
+/* The label slides back under the button by exactly its width, and pads its text
+   clear again, so the button reads as a cap on the end of the label rather than
+   a second thing sitting next to it. */
+.cbf-add + .cbf-badge {
+  margin-left: -24px;
+  padding-left: 30px;
+}
+
+.cbf-add-inline + .cbf-badge {
+  margin-left: -20px;
+  padding-left: 26px;
 }
 
 .cbf-add {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  z-index: 6;
+  position: relative;
+  z-index: 1; /* over the end of the label it overlaps */
+  flex: none;
   width: 24px;
   height: 24px;
   padding: 0;
@@ -68,30 +98,19 @@ tr.cbf-anchor[data-cbf-state='in'] {
   transition: opacity 0.12s ease, background 0.12s ease;
 }
 
-/* The top right of a Magic card is its mana cost, which the badge was covering,
-   so both sit along the bottom edge unless the setting says otherwise. Checklist
-   rows are laid out inline and ignore this. */
-html[data-cbf-anchor='top'] .cbf-badge,
-html[data-cbf-anchor='top'] .cbf-add {
-  top: 6px;
-  bottom: auto;
-}
-
-/* A checklist row has no card art to float over, so its button sits in the name
-   cell next to the badge. */
 .cbf-add-inline {
-  position: static;
-  display: inline-block;
   width: 20px;
   height: 20px;
-  margin-left: 6px;
   font-size: 14px;
   line-height: 20px;
-  vertical-align: middle;
 }
 
 /* Hover is not enough once an action is running: the pointer has usually left
    the card by then, and an invisible spinner is no feedback at all. */
+/* Pinned means the button belongs to a label, and so is part of an object that
+   is already on show. The rest only appear when wanted: on hover, while a menu
+   is open, or while an action is running, when the pointer has usually left. */
+.cbf-add-pinned,
 .cbf-anchor:hover .cbf-add,
 .cbf-add:focus-visible,
 .cbf-add-open,

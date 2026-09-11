@@ -219,7 +219,7 @@
     entry.anchor.removeAttribute('data-cbf-state');
     entry.anchor.removeAttribute('data-cbf-filterable');
     entry.anchor.style.removeProperty('--cbf-ring');
-    entry.badgeHost.querySelectorAll(':scope > .cbf-badge, :scope > .cbf-add').forEach((el) => el.remove());
+    entry.badgeHost.querySelectorAll(':scope > .cbf-overlay').forEach((el) => el.remove());
   }
 
   function annotate(entry, hits) {
@@ -231,23 +231,25 @@
     anchor.dataset.cbfState = hits.length ? 'in' : 'out';
     if (entry.filterable) anchor.dataset.cbfFilterable = '1';
 
-    if (hits.length) {
-      anchor.style.setProperty('--cbf-ring', ringColor(hits));
-
-      const badge = document.createElement('span');
-      badge.className = 'cbf-badge';
-      if (entry.layout === 'checklist') badge.classList.add('cbf-badge-inline');
-      badge.textContent = badgeText(hits);
-      badge.title = tooltip(hits);
-      badgeHost.appendChild(badge);
-    }
+    // The button and the badge are one object: a black cap on the left end of the
+    // label, clear of both the mana cost and the power and toughness box.
+    const overlay = document.createElement('span');
+    overlay.className = entry.layout === 'checklist' ? 'cbf-overlay cbf-overlay-inline' : 'cbf-overlay';
 
     // The text view carries no printing id, so there is nothing safe to add.
-    if (state.settings.showAddButton && entry.printId) {
+    const wantsButton = state.settings.showAddButton && entry.printId;
+
+    // The button comes first: the rule that slides the label under it is an
+    // adjacent-sibling one, and CSS cannot look backwards.
+    if (wantsButton) {
       const add = document.createElement('button');
       add.type = 'button';
       add.className = entry.layout === 'checklist' ? 'cbf-add cbf-add-inline' : 'cbf-add';
       add.title = hits.length ? 'Move, remove, or add a copy' : 'Add to a cube';
+
+      // Attached to a label the button is part of that object, so it stays on
+      // show. On its own it is just clutter until you go looking for it.
+      if (hits.length) add.classList.add('cbf-add-pinned');
 
       const status = state.actions.get(entry.printId);
       if (status === 'busy') {
@@ -273,14 +275,26 @@
         event.stopPropagation();
         openAddMenu(entry);
       });
-      badgeHost.appendChild(add);
+      overlay.appendChild(add);
     }
+
+    if (hits.length) {
+      anchor.style.setProperty('--cbf-ring', ringColor(hits));
+
+      const badge = document.createElement('span');
+      badge.className = 'cbf-badge';
+      badge.textContent = badgeText(hits);
+      badge.title = tooltip(hits);
+      overlay.appendChild(badge);
+    }
+
+    if (overlay.childElementCount) badgeHost.appendChild(overlay);
   }
 
   // The button for an entry, resolved fresh: a render may have replaced the one
   // a caller was holding.
   function addButtonFor(entry) {
-    return entry.badgeHost.querySelector(':scope > .cbf-add');
+    return entry.badgeHost.querySelector(':scope > .cbf-overlay > .cbf-add');
   }
 
   function repaint(entry) {
@@ -638,7 +652,7 @@
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node.nodeType !== 1) continue;
-        if (node.classList && (node.classList.contains('cbf-badge') || node.classList.contains('cbf-add'))) continue;
+        if (node.classList && node.classList.contains('cbf-overlay')) continue;
         if (node.matches && node.matches('.cbf-bar, .cbf-menu')) continue;
         if (node.querySelector && node.querySelector('.card-grid-item, .card-profile, .text-grid-item')) {
           return scheduleLookup();
